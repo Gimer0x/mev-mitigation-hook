@@ -8,3 +8,14 @@ solc_version = "0.8.28"
 src = "src"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+[rpc_endpoints]
+sepolia = "${SEPOLIA_RPC_URL}"
+alchemy_sepolia="${ALCHEMY_SEPOLIA_RPC}"
+local = "http://127.0.0.1:8545"
+
+[env]
+PRIVATE_KEY_LOCAL = "${PRIVATE_KEY_LOCAL}"
+PRIVATE_KEY = "${PRIVATE_KEY}"
+
+[etherscan]
+sepolia = { key = "${SEPOLIA_API_KEY}" }
