@@ -9,20 +9,25 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+import {LPFeeLibrary} from "v4-core-hook/libraries/LPFeeLibrary.sol";
 
 contract MEVMitigationHook is BaseHook {
+    using LPFeeLibrary for uint24;
     using PoolIdLibrary for PoolKey;
     
-    uint24 constant BASE_FEE = 9_000; // 0.9%
-    uint24 constant DYNAMIC_FEE = 36_000; // 3.6%
+    // The default base fees we will charge
+    uint24 public constant BASE_FEE = 5000; // 0.5%
+    uint24 public constant DYNAMIC_FEE = 36_000; // 3.6%
 
     mapping(uint256 => uint256) public lastBlockIdSwap;
+
+    error MustUseDynamicFee();
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
-            beforeInitialize: false,
+            beforeInitialize: true,
             afterInitialize: false,
             beforeAddLiquidity: false,
             afterAddLiquidity: false,
@@ -38,6 +43,15 @@ contract MEVMitigationHook is BaseHook {
             afterRemoveLiquidityReturnDelta: false
         });
     }
+
+    function _beforeInitialize(
+        address,
+        PoolKey calldata key,
+        uint160
+    ) internal pure override returns (bytes4) {
+        if (!key.fee.isDynamicFee()) revert MustUseDynamicFee();
+        return this.beforeInitialize.selector;
+    }
     
     function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
         internal
@@ -46,11 +60,12 @@ contract MEVMitigationHook is BaseHook {
     {
         uint256 oppositeSwapKey = getPackedKey(tx.origin, key.toId(), !params.zeroForOne);
 
-        bool isBothDirectionSwap = lastBlockIdSwap[oppositeSwapKey] == block.number;
-        uint24 fee = isBothDirectionSwap ? DYNAMIC_FEE : BASE_FEE;
+        bool isOppositeDirectionSwap = lastBlockIdSwap[oppositeSwapKey] == block.number;
+        // We update the
+        uint24 feeWithFlag = isOppositeDirectionSwap ? DYNAMIC_FEE : BASE_FEE;
         lastBlockIdSwap[getPackedKey(tx.origin, key.toId(), params.zeroForOne)] = block.number;
         
-        return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee);
+        return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, feeWithFlag);
     }
 
     // This function converts input parameters into one 256-bit slot (gas-saving technique in Solidity). 

@@ -23,7 +23,6 @@ contract CreatePoolAndAddLiquidityScript is BaseScript, LiquidityHelpers {
     Currency arst = Currency.wrap(address(0x18D8dDa8237965d5855E45Fb55969320ba208970));
     uint24 lpFee = 500; // 0.50%
     int24 tickSpacing = 10;
-    //uint160 startingPrice = 2 ** 96; // Starting price, sqrtPriceX96; floor(sqrt(1) * 2^96)
     uint160 startingPrice;
 
     // --- liquidity position configuration --- //
