@@ -17,7 +17,7 @@ contract MEVMitigationHook is BaseHook {
     
     // The default base fees we will charge
     uint24 public constant BASE_FEE = 5000; // 0.5%
-    uint24 public constant DYNAMIC_FEE = 36_000; // 3.6%
+    uint24 public constant DYNAMIC_FEE = 15_000; // 1.5%
 
     mapping(uint256 => uint256) public lastBlockIdSwap;
 
@@ -49,6 +49,7 @@ contract MEVMitigationHook is BaseHook {
         PoolKey calldata key,
         uint160
     ) internal pure override returns (bytes4) {
+        // Check if the pool has dynamic fee enabled.
         if (!key.fee.isDynamicFee()) revert MustUseDynamicFee();
         return this.beforeInitialize.selector;
     }
@@ -61,15 +62,26 @@ contract MEVMitigationHook is BaseHook {
         uint256 oppositeSwapKey = getPackedKey(tx.origin, key.toId(), !params.zeroForOne);
 
         bool isOppositeDirectionSwap = lastBlockIdSwap[oppositeSwapKey] == block.number;
-        // We update the
-        uint24 feeWithFlag = isOppositeDirectionSwap ? DYNAMIC_FEE : BASE_FEE;
+        // We update the gas fee if an opposite direction swap in the same block is detected.
+        uint24 fee = isOppositeDirectionSwap ? getFees() : BASE_FEE;
         lastBlockIdSwap[getPackedKey(tx.origin, key.toId(), params.zeroForOne)] = block.number;
         
-        return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, feeWithFlag);
+        uint24 feeWithFlag = fee | LPFeeLibrary.OVERRIDE_FEE_FLAG;
+        return (
+            this.beforeSwap.selector, 
+            BeforeSwapDeltaLibrary.ZERO_DELTA, 
+            feeWithFlag
+            );
     }
 
     // This function converts input parameters into one 256-bit slot (gas-saving technique in Solidity). 
     function getPackedKey(address _sender, PoolId _poolId, bool _direction) internal pure returns (uint256) {
         return (uint256(uint160(_sender)) << 96) | (uint256(PoolId.unwrap(_poolId)) & ((1 << 96) - 1)) | (_direction ? 1 : 0);
+    }
+
+    function getFees() internal pure  returns (uint24){
+        //uint128 gasPrice = uint128(tx.gasprice);
+
+        return DYNAMIC_FEE;
     }
 }
