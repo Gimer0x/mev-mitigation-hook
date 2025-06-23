@@ -90,8 +90,6 @@ contract CreatePoolAndAddLiquidityScript is BaseScript, LiquidityHelpers {
 
         // If the pool is an ETH pair, native tokens are to be transferred
         uint256 valueToPass = currency0.isAddressZero() ? amount0Max : 0;
-
-        //vm.startBroadcast();
         
         tokenApprovals();
 

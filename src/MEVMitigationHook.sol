@@ -10,6 +10,7 @@ import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 import {LPFeeLibrary} from "v4-core-hook/libraries/LPFeeLibrary.sol";
+import {console2} from "forge-std/Script.sol";
 
 contract MEVMitigationHook is BaseHook {
     using LPFeeLibrary for uint24;
@@ -19,11 +20,15 @@ contract MEVMitigationHook is BaseHook {
     uint24 public constant BASE_FEE = 5000; // 0.5%
     uint24 public constant DYNAMIC_FEE = 15_000; // 1.5%
 
+    uint24 public fee;
+
     mapping(uint256 => uint256) public lastBlockIdSwap;
 
     error MustUseDynamicFee();
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {
+        fee = BASE_FEE;
+    }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
@@ -63,10 +68,11 @@ contract MEVMitigationHook is BaseHook {
 
         bool isOppositeDirectionSwap = lastBlockIdSwap[oppositeSwapKey] == block.number;
         // We update the gas fee if an opposite direction swap in the same block is detected.
-        uint24 fee = isOppositeDirectionSwap ? getFees() : BASE_FEE;
+        fee = isOppositeDirectionSwap ? getFees() : BASE_FEE;
         lastBlockIdSwap[getPackedKey(tx.origin, key.toId(), params.zeroForOne)] = block.number;
         
         uint24 feeWithFlag = fee | LPFeeLibrary.OVERRIDE_FEE_FLAG;
+        console2.log(fee);
         return (
             this.beforeSwap.selector, 
             BeforeSwapDeltaLibrary.ZERO_DELTA, 
