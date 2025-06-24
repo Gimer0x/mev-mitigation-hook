@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {BaseHook} from "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol";
-
+import {DataFeedsScript} from "lib/foundry-chainlink-toolkit/script/feeds/DataFeed.s.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {IPoolManager, SwapParams, ModifyLiquidityParams} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
@@ -15,6 +15,8 @@ import {console2} from "forge-std/Script.sol";
 contract MEVMitigationHook is BaseHook {
     using LPFeeLibrary for uint24;
     using PoolIdLibrary for PoolKey;
+    DataFeedsScript public volatilityFeed;
+    
     
     // The default base fees we will charge
     uint24 public constant BASE_FEE = 5000; // 0.5%
@@ -28,6 +30,10 @@ contract MEVMitigationHook is BaseHook {
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {
         fee = BASE_FEE;
+
+        volatilityFeed = DataFeedsScript(
+            0x03121C1a9e6b88f56b27aF5cc065ee1FaF3CB4A9
+        );
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -85,9 +91,39 @@ contract MEVMitigationHook is BaseHook {
         return (uint256(uint160(_sender)) << 96) | (uint256(PoolId.unwrap(_poolId)) & ((1 << 96) - 1)) | (_direction ? 1 : 0);
     }
 
-    function getFees() internal pure  returns (uint24){
+    // Evaluate volatility and gas price
+    function getFees() internal view returns (uint24){
         //uint128 gasPrice = uint128(tx.gasprice);
 
+        int256 volatility = getVolatility();
+
+        if (volatility < 75 * 1e8) {
+        // Very low volatility → LP fees low
+        }
+
+        if (volatility >= 150 * 1e8 && volatility < 300 * 1e8) {
+        // Normal range → enable trading
+        }
+
+        if (volatility >= 400 * 1e8) {
+        // Extreme → maybe increase fees, or pause strategy
+        }
+
         return DYNAMIC_FEE;
+    }
+
+    function getVolatility() public view returns (int256 volatility) {
+        (
+            /* uint80 roundID */,
+            int256 answer,
+            /* uint256 startedAt */,
+            /* uint256 updatedAt */,
+            /* uint80 answeredInRound */
+        ) = volatilityFeed.getLatestRoundData();
+
+        uint8 feedDecimals = volatilityFeed.getDecimals();
+
+        //volatility = answer * 100 / 10 ** feedDecimals;
+        volatility = (answer * 100) / int256(10 ** uint256(feedDecimals));
     }
 }
