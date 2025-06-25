@@ -20,7 +20,11 @@ contract MEVMitigationHook is BaseHook {
     
     // The default base fees we will charge
     uint24 public constant BASE_FEE = 5000; // 0.5%
-    uint24 public constant DYNAMIC_FEE = 15_000; // 1.5%
+    uint24 public constant DYNAMIC_FEE = 10_000; // 1.0%
+
+    uint24 public HIGH_VOLATILITY_FEE = 15_000; // 1.5%
+    uint24 public MEDIUM_VOLATILITY_FEE = 10_000; // 1.0%
+    uint24 public LOW_VOLATILITY_FEE = 5_000; // 0.5%
 
     uint24 public fee;
 
@@ -31,6 +35,7 @@ contract MEVMitigationHook is BaseHook {
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {
         fee = BASE_FEE;
 
+        // Link/USD 24hrs Volatility (Sepolia)
         volatilityFeed = DataFeedsScript(
             0x03121C1a9e6b88f56b27aF5cc065ee1FaF3CB4A9
         );
@@ -92,24 +97,24 @@ contract MEVMitigationHook is BaseHook {
     }
 
     // Evaluate volatility and gas price
-    function getFees() internal view returns (uint24){
+    function getFees() internal returns (uint24){
         //uint128 gasPrice = uint128(tx.gasprice);
+        // Low volatility fee
+        fee = LOW_VOLATILITY_FEE;
 
         int256 volatility = getVolatility();
 
-        if (volatility < 75 * 1e8) {
-        // Very low volatility → LP fees low
+        // This values are experimental for volatility, need to improve.
+        if (volatility >= 75 && volatility < 200) {
+            // Normal range → enable trading
+            fee = MEDIUM_VOLATILITY_FEE;
         }
 
-        if (volatility >= 150 * 1e8 && volatility < 300 * 1e8) {
-        // Normal range → enable trading
+        if (volatility >= 200) {
+            fee = HIGH_VOLATILITY_FEE;
         }
 
-        if (volatility >= 400 * 1e8) {
-        // Extreme → maybe increase fees, or pause strategy
-        }
-
-        return DYNAMIC_FEE;
+        return fee;
     }
 
     function getVolatility() public view returns (int256 volatility) {
@@ -123,7 +128,7 @@ contract MEVMitigationHook is BaseHook {
 
         uint8 feedDecimals = volatilityFeed.getDecimals();
 
-        //volatility = answer * 100 / 10 ** feedDecimals;
         volatility = (answer * 100) / int256(10 ** uint256(feedDecimals));
     }
+
 }
