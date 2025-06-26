@@ -8,6 +8,7 @@ import {console2} from "forge-std/Script.sol";
 import {BaseScript} from "./base/BaseScript.sol";
 
 import {MEVMitigationHook} from "../src/MEVMitigationHook.sol";
+import {PriceConsumerV3} from "../src/utils/PriceConsumerV3.sol";
 
 /// @notice Mines the address and deploys the MEVMitigation.sol Hook contract
 contract DeployHookScript is BaseScript {
@@ -28,10 +29,11 @@ contract DeployHookScript is BaseScript {
 
         // Deploy the hook using CREATE2
         vm.startBroadcast();
-        MEVMitigationHook counter = new MEVMitigationHook{salt: salt}(poolManager);
+        PriceConsumerV3 _consumer = new PriceConsumerV3(0x03121C1a9e6b88f56b27aF5cc065ee1FaF3CB4A9);
+        MEVMitigationHook hook = new MEVMitigationHook{salt: salt}(poolManager, address(_consumer));
         vm.stopBroadcast();
 
-        require(address(counter) == hookAddress, HookDeploymentFailed());
+        require(address(hook) == hookAddress, HookDeploymentFailed());
         console2.log("Hook Address: ", hookAddress);
     }
 }
