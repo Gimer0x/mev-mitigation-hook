@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import { Script } from "forge-std/Script.sol";
-import { MockERC20 } from "src/MockERC20.sol";
+import { MockERC20 } from "src/utils/MockERC20.sol";
 
 import { console } from "forge-std/console.sol";
 
