@@ -32,6 +32,7 @@ contract MevMitigationTest is Test, Deployers {
 
     uint24 public constant INITIAL_FEE = 300; // 0.03%
     uint24 public constant BASE_FEE = 5_000; // 0.5%
+    uint24 public constant LOWER_PRICE_FEE = 6_000; // 0.6%
 
     uint24 public HIGH_VOLATILITY_FEE = 20_000; // 2.0%
     uint24 public MEDIUM_VOLATILITY_FEE = 15_000; // 1.5%
@@ -56,8 +57,8 @@ contract MevMitigationTest is Test, Deployers {
         deployArtifacts();
 
         (currency0, currency1) = deployCurrencyPair();
-
         oracle = new MockV3Aggregator(5, 89194);
+
         consumer = new PriceConsumerV3(
             address(oracle)
         );
@@ -69,6 +70,7 @@ contract MevMitigationTest is Test, Deployers {
             )
         );
         // Optionally set the gas price
+        vm.txGasPrice(10 gwei);
         deployCodeTo("MEVMitigationHook.sol:MEVMitigationHook", abi.encode(poolManager, address(consumer)), flags);
         hook = MEVMitigationHook(flags);
 
@@ -114,7 +116,9 @@ contract MevMitigationTest is Test, Deployers {
         
         // Perform a test swap //
         uint256 amountIn = 1e18;
-        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens{gas: 3000000000}({
+        // Execute this transaction at a higher gas price.
+        vm.txGasPrice(12 gwei);
+        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens({
             amountIn: amountIn,
             amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
             zeroForOne: true,
@@ -129,13 +133,54 @@ contract MevMitigationTest is Test, Deployers {
         assertEq(hook.fee(), INITIAL_FEE + BASE_FEE);
     }
 
+    function testBackRunningMitigation() public {
+        // positions were created in setup()
+        assertEq(hook.fee(), INITIAL_FEE);
+        
+        // Perform a test swap //
+        uint256 amountIn = 1e18;
+        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
+            zeroForOne: true,
+            poolKey: poolKey,
+            hookData: Constants.ZERO_BYTES,
+            receiver: address(this),
+            deadline: block.timestamp + 1
+        });
+        assertEq(int256(swapDelta.amount0()), -int256(amountIn));
+
+        vm.startPrank(alice);
+        swapRouter.swapExactTokensForTokens({
+            amountIn: 2,
+            amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
+            zeroForOne: true,
+            poolKey: poolKey,
+            hookData: Constants.ZERO_BYTES,
+            receiver: address(this),
+            deadline: block.timestamp + 1
+        });
+        
+        swapRouter.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: 0,
+            zeroForOne: true,
+            poolKey: poolKey,
+            hookData: Constants.ZERO_BYTES,
+            receiver: address(this),
+            deadline: block.timestamp + 1
+        });
+
+        assertEq(hook.fee(), INITIAL_FEE + LOWER_PRICE_FEE);
+    }
+
     function testSandwichMitigation() public {
         // positions were created in setup()
         assertEq(hook.fee(), INITIAL_FEE);
         
         // Perform a test swap //
         uint256 amountIn = 1e18;
-        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens{gas: 10000000}({
+        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens({
             amountIn: amountIn,
             amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
             zeroForOne: true,
@@ -147,7 +192,7 @@ contract MevMitigationTest is Test, Deployers {
         
         assertEq(int256(swapDelta.amount0()), -int256(amountIn));
 
-        assertEq(hook.fee(), INITIAL_FEE + BASE_FEE);
+        assertEq(hook.fee(), INITIAL_FEE);
         
         swapRouter.swapExactTokensForTokens({
             amountIn: amountIn,
@@ -159,6 +204,6 @@ contract MevMitigationTest is Test, Deployers {
             deadline: block.timestamp + 1
         });
 
-        assertEq(hook.fee(), INITIAL_FEE + BASE_FEE + MEDIUM_VOLATILITY_FEE);
+        assertEq(hook.fee(), INITIAL_FEE + MEDIUM_VOLATILITY_FEE);
     }
 }

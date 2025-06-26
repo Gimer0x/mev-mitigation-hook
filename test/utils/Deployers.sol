@@ -35,16 +35,24 @@ contract Deployers is Test {
     IPoolManager poolManager;
     IPositionManager positionManager;
     IUniswapV4Router04 swapRouter;
+    address alice = address(0xA11CE);
 
     function deployToken() internal returns (MockERC20 token) {
         token = new MockERC20("Test Token", "TEST", 18);
         token.mint(address(this), 10_000_000 ether);
+        
+        token.mint(alice, 1_000_000 ether);
 
+        token.approve(address(permit2), type(uint256).max);
+        token.approve(address(swapRouter), type(uint256).max);
+
+        vm.startPrank(alice);
         token.approve(address(permit2), type(uint256).max);
         token.approve(address(swapRouter), type(uint256).max);
 
         permit2.approve(address(token), address(positionManager), type(uint160).max, type(uint48).max);
         permit2.approve(address(token), address(poolManager), type(uint160).max, type(uint48).max);
+
     }
 
     function deployCurrencyPair() internal returns (Currency currency0, Currency currency1) {

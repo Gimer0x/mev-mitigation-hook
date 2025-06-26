@@ -25,6 +25,7 @@ contract MEVMitigationHook is BaseHook {
     // The default base fees we will charge
     uint24 public constant INITIAL_FEE = 300; // 0.03%
     uint24 public constant BASE_FEE = 5_000; // 0.5%
+    uint24 public constant LOWER_PRICE_FEE = 6_000; // 0.5%
     
     uint24 public HIGH_VOLATILITY_FEE = 20_000; // 2.0%
     uint24 public MEDIUM_VOLATILITY_FEE = 15_000; // 1.5%
@@ -40,7 +41,7 @@ contract MEVMitigationHook is BaseHook {
     constructor(IPoolManager _poolManager, address _feedAddress) BaseHook(_poolManager) {
         // Need to find a better value
         fee = INITIAL_FEE;
-        txFeeThreshold = 1 gwei;
+        txFeeThreshold = 10 gwei;
 
         // Link/USD 24hrs Volatility (Sepolia)
         volatilityFeed = PriceConsumerV3(_feedAddress);
@@ -107,7 +108,7 @@ contract MEVMitigationHook is BaseHook {
         // https://ethresear.ch/t/improving-front-running-resistance-of-x-y-k-market-makers/1281
         if (currentBlock[uint256(PoolId.unwrap(poolId))] == block.number) {
             if (lastBlockPrice[getPriceKey(block.number, poolId, direction)] > priceX96)
-                fee += BASE_FEE;
+                fee += LOWER_PRICE_FEE;
         } else {
             lastBlockPrice[getPriceKey(block.number, poolId, direction)] = priceX96;
             currentBlock[uint256(PoolId.unwrap(poolId))] = block.number;    
