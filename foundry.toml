@@ -1,14 +1,12 @@
 [profile.default]
 evm_version = "cancun"
 ffi = true
-fs_permissions = [
-    {access = "read-write", path = ".forge-snapshots/"},
-    {access = "read", path = "lib/foundry-chainlink-toolkit/out"}
-]
 libs = ["lib"]
 out = "out"
 solc_version = "0.8.28"
 src = "src"
+gas_limit = 30000000
+gas_price = 10000000000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [rpc_endpoints]

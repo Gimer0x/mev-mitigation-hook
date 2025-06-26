@@ -30,9 +30,13 @@ contract MevMitigationTest is Test, Deployers {
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
 
-    uint24 public constant BASE_FEE = 5000; // 0.5%
-    uint24 public constant DYNAMIC_FEE = 15_000; // 1.5%
+    uint24 public constant INITIAL_FEE = 300; // 0.03%
+    uint24 public constant BASE_FEE = 5_000; // 0.5%
 
+    uint24 public HIGH_VOLATILITY_FEE = 20_000; // 2.0%
+    uint24 public MEDIUM_VOLATILITY_FEE = 15_000; // 1.5%
+    uint24 public LOW_VOLATILITY_FEE = 10_000; // 1.0%
+    
     Currency currency0;
     Currency currency1;
 
@@ -53,12 +57,11 @@ contract MevMitigationTest is Test, Deployers {
 
         (currency0, currency1) = deployCurrencyPair();
 
-        oracle = new MockV3Aggregator(18, 75);
+        oracle = new MockV3Aggregator(5, 89194);
         consumer = new PriceConsumerV3(
             address(oracle)
         );
         
-
         // Deploy the hook to an address with the correct flags
         address flags = address(
             uint160(
@@ -66,7 +69,6 @@ contract MevMitigationTest is Test, Deployers {
             )
         );
         // Optionally set the gas price
-        vm.txGasPrice(10 gwei);
         deployCodeTo("MEVMitigationHook.sol:MEVMitigationHook", abi.encode(poolManager, address(consumer)), flags);
         hook = MEVMitigationHook(flags);
 
@@ -106,13 +108,13 @@ contract MevMitigationTest is Test, Deployers {
         assertEq(fee, 0);
     }
 
-    function testMEVMitigationHook() public {
+    function testFrontRunningFees() public {
         // positions were created in setup()
-        assertEq(hook.fee(), BASE_FEE);
+        assertEq(hook.fee(), INITIAL_FEE);
         
         // Perform a test swap //
         uint256 amountIn = 1e18;
-        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens({
+        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens{gas: 3000000000}({
             amountIn: amountIn,
             amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
             zeroForOne: true,
@@ -123,6 +125,29 @@ contract MevMitigationTest is Test, Deployers {
         });
         
         assertEq(int256(swapDelta.amount0()), -int256(amountIn));
+
+        assertEq(hook.fee(), INITIAL_FEE + BASE_FEE);
+    }
+
+    function testSandwichMitigation() public {
+        // positions were created in setup()
+        assertEq(hook.fee(), INITIAL_FEE);
+        
+        // Perform a test swap //
+        uint256 amountIn = 1e18;
+        BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens{gas: 10000000}({
+            amountIn: amountIn,
+            amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
+            zeroForOne: true,
+            poolKey: poolKey,
+            hookData: Constants.ZERO_BYTES,
+            receiver: address(this),
+            deadline: block.timestamp + 1
+        });
+        
+        assertEq(int256(swapDelta.amount0()), -int256(amountIn));
+
+        assertEq(hook.fee(), INITIAL_FEE + BASE_FEE);
         
         swapRouter.swapExactTokensForTokens({
             amountIn: amountIn,
@@ -134,6 +159,6 @@ contract MevMitigationTest is Test, Deployers {
             deadline: block.timestamp + 1
         });
 
-        // assertEq(hook.fee(), DYNAMIC_FEE);
+        assertEq(hook.fee(), INITIAL_FEE + BASE_FEE + MEDIUM_VOLATILITY_FEE);
     }
 }

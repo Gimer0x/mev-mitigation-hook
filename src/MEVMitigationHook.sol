@@ -23,11 +23,12 @@ contract MEVMitigationHook is BaseHook {
     uint256 txFeeThreshold;
     
     // The default base fees we will charge
-    uint24 public constant BASE_FEE = 5000; // 0.5%
+    uint24 public constant INITIAL_FEE = 300; // 0.03%
+    uint24 public constant BASE_FEE = 5_000; // 0.5%
     
-    uint24 public HIGH_VOLATILITY_FEE = 15_000; // 1.5%
-    uint24 public MEDIUM_VOLATILITY_FEE = 10_000; // 1.0%
-    uint24 public LOW_VOLATILITY_FEE = 5_000; // 0.5%
+    uint24 public HIGH_VOLATILITY_FEE = 20_000; // 2.0%
+    uint24 public MEDIUM_VOLATILITY_FEE = 15_000; // 1.5%
+    uint24 public LOW_VOLATILITY_FEE = 10_000; // 1.0%
     uint24 public fee;
 
     mapping(uint256 => uint256) public lastBlockIdSwap;
@@ -37,9 +38,9 @@ contract MEVMitigationHook is BaseHook {
     error MustUseDynamicFee();
 
     constructor(IPoolManager _poolManager, address _feedAddress) BaseHook(_poolManager) {
-        fee = BASE_FEE;
         // Need to find a better value
-        txFeeThreshold = 10 gwei;
+        fee = INITIAL_FEE;
+        txFeeThreshold = 1 gwei;
 
         // Link/USD 24hrs Volatility (Sepolia)
         volatilityFeed = PriceConsumerV3(_feedAddress);
@@ -79,6 +80,7 @@ contract MEVMitigationHook is BaseHook {
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        fee = INITIAL_FEE;
         bool direction = params.zeroForOne;
         PoolId poolId = key.toId();
         
@@ -88,6 +90,8 @@ contract MEVMitigationHook is BaseHook {
         // frontrunning bots usually pay high tips to guarantee inclusion first.
         if (txFeeThreshold < txPriorityFee)
             fee += BASE_FEE;
+        //console2.log("txFeeThreshold", txFeeThreshold);
+        //console2.log("txPriorityFee", txPriorityFee);
 
         // Check possible backrunning
         (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
@@ -108,18 +112,17 @@ contract MEVMitigationHook is BaseHook {
             lastBlockPrice[getPriceKey(block.number, poolId, direction)] = priceX96;
             currentBlock[uint256(PoolId.unwrap(poolId))] = block.number;    
         }
-       
         // Check possible Sandwich attack
         uint256 oppositeSwapKey = getPackedKey(tx.origin, poolId, !direction);
         bool isOppositeDirectionSwap = lastBlockIdSwap[oppositeSwapKey] == block.number;
 
         // We update the gas fee if an opposite direction swap in the same block is detected.
         // Increase fees when a high volatility period is detected.
-        fee += isOppositeDirectionSwap ? getFees() : BASE_FEE;
+        fee += isOppositeDirectionSwap ? getFees() : 0;
         lastBlockIdSwap[getPackedKey(tx.origin, poolId, direction)] = block.number;
         
         uint24 feeWithFlag = fee | LPFeeLibrary.OVERRIDE_FEE_FLAG;
-        console2.log(fee);
+        
         return (
             this.beforeSwap.selector, 
             BeforeSwapDeltaLibrary.ZERO_DELTA, 
@@ -144,26 +147,22 @@ contract MEVMitigationHook is BaseHook {
     }
 
     // Evaluate volatility and gas price
-    function getFees() internal returns (uint24){
-        //uint128 gasPrice = uint128(tx.gasprice);
-        // Low volatility fee
-        fee = LOW_VOLATILITY_FEE;
-
-        int256 answer = volatilityFeed.getLatestRoundData();
-
-        uint8 feedDecimals = volatilityFeed.getDecimals();
-        int256 volatility = (answer * 100) / int256(10 ** uint256(feedDecimals));
-
+    function getFees() internal view returns (uint24){
+        uint24 _fee;
+        int256 volatility = volatilityFeed.getLatestRoundData();
+       
         // This values are experimental for volatility, need to improve.
-        if (volatility >= 75 && volatility < 200) {
+        if (volatility < 75){
+            _fee = LOW_VOLATILITY_FEE;
+        } else if (volatility >= 75 && volatility < 200) {
             // Normal range -> increase fee
-            fee = MEDIUM_VOLATILITY_FEE;
+            _fee = MEDIUM_VOLATILITY_FEE;
         } else if (volatility >= 200) {
             // High range -> max fee
-            fee = HIGH_VOLATILITY_FEE;
+            _fee = HIGH_VOLATILITY_FEE;
         }
-
-        return fee;
+        
+        return _fee;
     }
 
     // EIP-1559: London Hardfork, adds a priority fee (tip) to incentivize validators

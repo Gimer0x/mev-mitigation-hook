@@ -13,7 +13,7 @@ contract PriceConsumerV3 {
         );
     }
 
-    function getLatestRoundData() external view returns (int256) {
+    function getLatestRoundData() external view returns (int256 volatility) {
         (
             /* uint80 roundID */,
             int256 answer,
@@ -21,11 +21,12 @@ contract PriceConsumerV3 {
             /* uint256 updatedAt */,
             /* uint80 answeredInRound */
         ) = volatilityFeed.getLatestRoundData();
-        return answer;
+
+        volatility = (answer * 100) / int256(10 ** uint256(getDecimals()));
     }
 
     function getDecimals()
-        external
+        public
         view
         returns (uint8)
     {
