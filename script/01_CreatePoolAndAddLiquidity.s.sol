@@ -13,6 +13,7 @@ import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 
 import {BaseScript} from "./base/BaseScript.sol";
 import {LiquidityHelpers} from "./base/LiquidityHelpers.sol";
+import {LPFeeLibrary} from "v4-core-hook/libraries/LPFeeLibrary.sol";
 
 contract CreatePoolAndAddLiquidityScript is BaseScript, LiquidityHelpers {
     using CurrencyLibrary for Currency;
@@ -42,7 +43,7 @@ contract CreatePoolAndAddLiquidityScript is BaseScript, LiquidityHelpers {
         PoolKey memory poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: lpFee,
+            fee: lpFee | LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: tickSpacing,
             hooks: hookContract
         });

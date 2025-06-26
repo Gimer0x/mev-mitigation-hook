@@ -76,7 +76,7 @@ contract MEVMitigationHook is BaseHook {
         return this.beforeInitialize.selector;
     }
     
-    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
+    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         internal
         override
         returns (bytes4, BeforeSwapDelta, uint24)
@@ -91,8 +91,6 @@ contract MEVMitigationHook is BaseHook {
         // frontrunning bots usually pay high tips to guarantee inclusion first.
         if (txFeeThreshold < txPriorityFee)
             fee += BASE_FEE;
-        //console2.log("txFeeThreshold", txFeeThreshold);
-        //console2.log("txPriorityFee", txPriorityFee);
 
         // Check possible backrunning
         (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
@@ -102,6 +100,8 @@ contract MEVMitigationHook is BaseHook {
         if (!direction) {
             priceX96 = (uint256(1) << 192) / priceX96;
         }
+
+        console2.logBytes32(bytes32(hookData));
 
         // improve this, consider n blocks?
         // Improving front running resistance of x*y=k market makers

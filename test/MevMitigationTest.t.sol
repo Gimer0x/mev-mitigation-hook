@@ -118,12 +118,14 @@ contract MevMitigationTest is Test, Deployers {
         uint256 amountIn = 1e18;
         // Execute this transaction at a higher gas price.
         vm.txGasPrice(12 gwei);
+        address sender = 0xDa058764580d50AA1cfdae93430583cd4CdFc98a;
+        
         BalanceDelta swapDelta = swapRouter.swapExactTokensForTokens({
             amountIn: amountIn,
-            amountOutMin: 0, // Very bad, but we want to allow for unlimited price impact
+            amountOutMin: 0, // This is Very bad, only for testing purposes.
             zeroForOne: true,
             poolKey: poolKey,
-            hookData: Constants.ZERO_BYTES,
+            hookData: abi.encode(sender),
             receiver: address(this),
             deadline: block.timestamp + 1
         });
