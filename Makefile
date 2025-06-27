@@ -35,5 +35,11 @@ deploy-hook-local:
 		--private-key $(PRIVATE_KEY_LOCAL) \
 		--broadcast
 
+deploy-hook:
+	forge script script/00_DeployHook.s.sol:DeployHookScript \
+		--rpc-url sepolia \
+		--private-key $(PRIVATE_KEY) \
+		--broadcast
+
 anvil-fork:
 	anvil --fork-url sepolia

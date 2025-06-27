@@ -23,14 +23,18 @@ contract DeployHookScript is BaseScript {
         );
 
         // Mine a salt that will produce a hook address with the correct flags
-        bytes memory constructorArgs = abi.encode(poolManager);
+        // Sepolia Link/USD price feed (only for testing purposes)
+        address feedAddress = 0xc59E3633BAAC79493d908e63626716e204A45EdF;
+
+        bytes memory constructorArgs = abi.encode(poolManager, feedAddress);
+        
+
         (address hookAddress, bytes32 salt) =
             HookMiner.find(CREATE2_FACTORY, flags, type(MEVMitigationHook).creationCode, constructorArgs);
 
         // Deploy the hook using CREATE2
         vm.startBroadcast();
-        PriceConsumerV3 _consumer = new PriceConsumerV3(0x03121C1a9e6b88f56b27aF5cc065ee1FaF3CB4A9);
-        MEVMitigationHook hook = new MEVMitigationHook{salt: salt}(poolManager, address(_consumer));
+        MEVMitigationHook hook = new MEVMitigationHook{salt: salt}(poolManager, feedAddress);
         vm.stopBroadcast();
 
         require(address(hook) == hookAddress, HookDeploymentFailed());

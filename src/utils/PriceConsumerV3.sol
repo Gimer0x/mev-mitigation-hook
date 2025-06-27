@@ -6,7 +6,7 @@ import {DataFeedsScript} from "lib/foundry-chainlink-toolkit/script/feeds/DataFe
 contract PriceConsumerV3 {
     DataFeedsScript public volatilityFeed;
 
-    // 0x03121C1a9e6b88f56b27aF5cc065ee1FaF3CB4A9
+    // 0xc59E3633BAAC79493d908e63626716e204A45EdF
     constructor(address _priceFeed) {
         volatilityFeed = DataFeedsScript(
             _priceFeed

@@ -39,8 +39,8 @@ contract MEVMitigationHook is BaseHook {
     error MustUseDynamicFee();
 
     constructor(IPoolManager _poolManager, address _feedAddress) BaseHook(_poolManager) {
-        // Need to find a better value
         fee = INITIAL_FEE;
+        // Hardcoded values are only for testint purposes.
         txFeeThreshold = 10 gwei;
 
         // Link/USD 24hrs Volatility (Sepolia)
@@ -91,9 +91,7 @@ contract MEVMitigationHook is BaseHook {
         // frontrunning bots usually pay high tips to guarantee inclusion first.
         if (txFeeThreshold < txPriorityFee)
             fee += BASE_FEE;
-        //console2.log("txFeeThreshold", txFeeThreshold);
-        //console2.log("txPriorityFee", txPriorityFee);
-
+ 
         // Check possible backrunning
         (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
         
