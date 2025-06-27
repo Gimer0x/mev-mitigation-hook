@@ -1,85 +1,51 @@
-# Uniswap v4 Hook Template
+# Dynamic Fees for MEV Mitigation
 
-**A template for writing Uniswap v4 Hooks 🦄**
+**Atrium Academy Capston Project🦄**
 
-### Get Started
+### Introduction
 
-This template provides a starting point for writing Uniswap v4 Hooks, including a simple example and preconfigured test environment. Start by creating a new repository using the "Use this template" button at the top right of this page. Alternatively you can also click this link:
+This hook implements a set of strategies to make MEV attacks unprofitable by adjusting fees based on the user’s behavior. In general, this work intends to protect low-liquidity pools from various forms of Miner Extractable Value (MEV) attacks, such as front-running, back-running, and sandwich attacks. These attacks exploit the transparency and ordering of transactions on public blockchains, allowing malicious actors (often bots or miners) to profit at the expense of regular users by manipulating transaction order and pool state.
 
-[![Use this Template](https://img.shields.io/badge/Use%20this%20Template-101010?style=for-the-badge&logo=github)](https://github.com/uniswapfoundation/v4-template/generate)
+These attacks lead to:
+- Worse execution prices for regular users.
+- Increased transaction costs.
+- Reduced trust in DEX fairness and security.
 
-1. The example hook [Counter.sol](src/Counter.sol) demonstrates the `beforeSwap()` and `afterSwap()` hooks
-2. The test template [Counter.t.sol](test/Counter.t.sol) preconfigures the v4 pool manager, test tokens, and test liquidity.
+## Our Solution
+The project implements a MEV Mitigation Hook for Uniswap v4 pools. This hook dynamically adjusts trading fees based on detected transaction patterns and volatility, making MEV attacks less profitable or economically unviable. By increasing fees in response to suspicious activity (e.g., rapid swaps, abnormal gas prices, or price movements), the system discourages and penalizes MEV strategies, thereby protecting liquidity providers and traders.
 
-<details>
-<summary>Updating to v4-template:latest</summary>
+Our project is inspired by the ideas presented in this article to mitigate MEV attacks by increasing the fees: 
+[Sandwich Resistant AMM](https://www.umbraresearch.xyz/writings/sandwich-resistant-amm)
 
-This template is actively maintained -- you can update the v4 dependencies, scripts, and helpers:
 
-```bash
-git remote add template https://github.com/uniswapfoundation/v4-template
-git fetch template
-git merge template/main <BRANCH> --allow-unrelated-histories
-```
+This work is also inspired by some ideas presented by Vitalik Buterin in 2018 in this [post](https://ethresear.ch/t/improving-front-running-resistance-of-x-y-k-market-makers/1281).
 
-</details>
+The goal is to make a transaction unprofitable when some malicious actions are detected. For instance, Vitalik proposes to prevent any user from buying a pair of tokens at a lower price during a certain amount of time (e.g., in the same block). In our work, we increase the amount of fees when this behaviour is detected helping to mitigate the effect of a backrunning attack. This is possible and easier thanks to Uniswap V4 hooks. 
 
-### Requirements
+To prevent frontrunning attacks, we detect when the priority fee exceeds a threshold. If this is detected, the fees are increased. Finally, to mitigate sandwich attacks, if a user intends to buy a token in the opposite direction in the same block, then fees are increased according to the volatility range of the pair obtained from a Chainlink Oracle. 
 
-This template is designed to work with Foundry (stable). If you are using Foundry Nightly, you may encounter compatibility issues. You can update your Foundry installation to the latest stable version by running:
+The project aims to make DEX trading fairer and more secure by automatically detecting and mitigating MEV attacks through dynamic fee adjustments, inspired by the need to address real-world vulnerabilities in DeFi protocols.
 
-```
-foundryup
-```
 
-To set up the project, run the following commands in your terminal to install dependencies and run the tests:
+### What makes this project unique? What impact will this make?
 
-```
-forge install
-forge test
-```
+This project is motivated by our research to create a safer and fairer ARST/USDC pool on Uniswap V4. This work will impact the adoption of our token in Latin America. 
 
-### Local Development
+Dynamic, On-Chain MEV Mitigation:
+Unlike static fee models or off-chain monitoring, this project introduces a smart contract “hook” that dynamically adjusts trading fees in real time based on observed pool activity and volatility. The hook is directly integrated with Uniswap v4’s extensible architecture, allowing for seamless, protocol-level MEV protection.
 
-Other than writing unit tests (recommended!), you can only deploy & test hooks on [anvil](https://book.getfoundry.sh/anvil/) locally. Scripts are available in the `script/` directory, which can be used to deploy hooks, create pools, provide liquidity and swap tokens. The scripts support both local `anvil` environment as well as running them directly on a production network.
+Automated Detection and Response:
+The system automatically detects suspicious trading patterns (such as those typical of front-running, back-running, and sandwich attacks) and responds by increasing fees or changing pool parameters, making these attacks less profitable or even unprofitable.
 
-### Troubleshooting
+Composable and Permissionless:
+ Built as a Uniswap v4 hook, the solution is fully composable and can be deployed permissionless to any pool, allowing broad adoption without requiring changes to the core protocol or reliance on centralized actors.
 
-<details>
+Oracle Integration:
+The project leverages on-chain oracles to inform its volatility and fee adjustment logic, providing a robust, data-driven approach to MEV mitigation.
 
-#### Permission Denied
+What impact will this make:
+Fairer Markets:
+By reducing the profitability of MEV attacks, the project helps ensure that regular users and liquidity providers get fairer prices and are less likely to be exploited by sophisticated bots or miners.
 
-When installing dependencies with `forge install`, Github may throw a `Permission Denied` error
-
-Typically caused by missing Github SSH keys, and can be resolved by following the steps [here](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
-
-Or [adding the keys to your ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#adding-your-ssh-key-to-the-ssh-agent), if you have already uploaded SSH keys
-
-#### Anvil fork test failures
-
-Some versions of Foundry may limit contract code size to ~25kb, which could prevent local tests to fail. You can resolve this by setting the `code-size-limit` flag
-
-```
-anvil --code-size-limit 40000
-```
-
-#### Hook deployment failures
-
-Hook deployment failures are caused by incorrect flags or incorrect salt mining
-
-1. Verify the flags are in agreement:
-   - `getHookCalls()` returns the correct flags
-   - `flags` provided to `HookMiner.find(...)`
-2. Verify salt mining is correct:
-   - In **forge test**: the _deployer_ for: `new Hook{salt: salt}(...)` and `HookMiner.find(deployer, ...)` are the same. This will be `address(this)`. If using `vm.prank`, the deployer will be the pranking address
-   - In **forge script**: the deployer must be the CREATE2 Proxy: `0x4e59b44847b379578588920cA78FbF26c0B4956C`
-     - If anvil does not have the CREATE2 deployer, your foundry may be out of date. You can update it with `foundryup`
-
-</details>
-
-### Additional Resources
-
-- [Uniswap v4 docs](https://docs.uniswap.org/contracts/v4/overview)
-- [v4-periphery](https://github.com/uniswap/v4-periphery)
-- [v4-core](https://github.com/uniswap/v4-core)
-- [v4-by-example](https://v4-by-example.org)
+Potential Adoption Of the ARST Token:
+If successful, this approach might help our token to be adopted in Latin Americaacross and inspire similar mechanisms in other protocols, raising the security baseline for the entire DeFi ecosystem.
