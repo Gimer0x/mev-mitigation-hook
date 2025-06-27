@@ -1,6 +1,6 @@
 # Dynamic Fees for MEV Mitigation
 
-**Atrium Academy Capston Project🦄**
+**Atrium Academy Capston Project** 🦄
 
 ### Introduction
 
@@ -29,23 +29,22 @@ The project aims to make DEX trading fairer and more secure by automatically det
 
 ### What makes this project unique? What impact will this make?
 
-This project is motivated by our research to create a safer and fairer ARST/USDC pool on Uniswap V4. This work will impact the adoption of our token in Latin America. 
-
-Dynamic, On-Chain MEV Mitigation:
+**Dynamic, On-Chain MEV Mitigation**:
 Unlike static fee models or off-chain monitoring, this project introduces a smart contract “hook” that dynamically adjusts trading fees in real time based on observed pool activity and volatility. The hook is directly integrated with Uniswap v4’s extensible architecture, allowing for seamless, protocol-level MEV protection.
 
-Automated Detection and Response:
+**Automated Detection and Response**:
 The system automatically detects suspicious trading patterns (such as those typical of front-running, back-running, and sandwich attacks) and responds by increasing fees or changing pool parameters, making these attacks less profitable or even unprofitable.
 
-Composable and Permissionless:
+**Composable and Permissionless**:
  Built as a Uniswap v4 hook, the solution is fully composable and can be deployed permissionless to any pool, allowing broad adoption without requiring changes to the core protocol or reliance on centralized actors.
 
-Oracle Integration:
+**Oracle Integration**:
 The project leverages on-chain oracles to inform its volatility and fee adjustment logic, providing a robust, data-driven approach to MEV mitigation.
 
-What impact will this make:
-Fairer Markets:
+### What impact will this make:
+
+**Fairer Markets**:
 By reducing the profitability of MEV attacks, the project helps ensure that regular users and liquidity providers get fairer prices and are less likely to be exploited by sophisticated bots or miners.
 
-Potential Adoption Of the ARST Token:
-If successful, this approach might help our token to be adopted in Latin Americaacross and inspire similar mechanisms in other protocols, raising the security baseline for the entire DeFi ecosystem.
+**Potential Adoption of low liquidity Tokens**:
+If successful, this approach might help low liquidity tokens to be adopted and inspire similar mechanisms in other protocols, raising the security baseline for the entire DeFi ecosystem.
